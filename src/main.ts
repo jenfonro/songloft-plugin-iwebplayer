@@ -36,7 +36,7 @@ setupWebDAVRoutes(router);
 let keepAliveTimer: any = null;
 
 // 👇 新增 2：给前端专门提供的鲜活 Token 接口
-router.get('/token', async () => {
+router.get('/api/token', async () => {
     try {
         const token = await songloft.plugin.getToken();
         return jsonResponse({ token });
@@ -115,7 +115,8 @@ router.get('/musiclist', async (req) => {
               plugin_entry_path: s.plugin_entry_path || "", dedup_key: s.dedup_key || ""
           }));
 
-          if (pl.name !== 'music') {
+          const isPhysicalFolder = pl.labels && pl.labels.includes("auto_created");
+          if (pl.name !== 'music' || isPhysicalFolder) {
               structure[`${pl.name}`] = cleanedSongs.map((s: any) => s.id);
           }
 
