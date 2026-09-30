@@ -1493,7 +1493,11 @@
                                 if (!res.ok) continue;
                                 const cleanedSongs = await res.json();
 
-                                if (pl.name !== 'music') syncReconstructed[pl.name] = cleanedSongs;
+                                // 🌟 修复：判断是否为真实物理文件夹
+                                const isPhysicalFolder = pl.labels && pl.labels.includes("auto_created");
+                                if (pl.name !== 'music' || isPhysicalFolder) {
+                                    syncReconstructed[pl.name] = cleanedSongs;
+                                }
 
                                 const isBuiltIn = pl.labels && pl.labels.includes("built_in");
                                 if (!isBuiltIn) {

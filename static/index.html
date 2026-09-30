@@ -1238,7 +1238,7 @@
   <script src="./static/icons.js?v1.3.6" defer></script>
   <script src="./static/utils.js?v1.3.6" defer></script>
   <script src="./static/lyrics.js?v1.3.3" defer></script>
-  <script src="./static/playlist.js?v1.3.6" defer></script>
+  <script src="./static/playlist.js?v1.3.7" defer></script>
   <script src="./static/online.js?v1.3.0" defer></script>
   <script src="./static/plugins.js?v1.3.0" defer></script>
   <script src="./static/player.js?v1.3.6" defer></script>
@@ -2273,7 +2273,7 @@
     /* ==========================================
      * 2. 核心配置与全局状态变量
      * ========================================== */
-    window.APP_VERSION = 'v1.3.6';
+    window.APP_VERSION = 'v1.3.7';
     window.APP_LOGO = document.getElementById('app-logo')?.content || '';
     window.PREDEFINED_PLAYLISTS = ['我的歌单', '所有歌曲', '收藏', '下载', '最近新增', '所有电台', '在线资源', '曲库搜索', 'cache_songs'];
     window.API = { list: './musiclist', info: './musicinfo?id=', refreshList: './refreshlist', cmdStatus: './cmdstatus' };
@@ -3851,6 +3851,10 @@
         } else if (currentPlaylist === '曲库搜索' && typeof window.performLocalSearch === 'function') {
             const savedKeyword = localStorage.getItem('iwebplayer.local_search_keyword') || '';
             window.performLocalSearch(savedKeyword);
+        } else {
+            // 🌟 如果是读取缓存直接进来的，必须在这里立刻触发一次渲染，实现“首屏秒开”！
+            if (typeof window.renderPlaylist === 'function') window.renderPlaylist();
+            if (window.FilterManager && typeof window.FilterManager.applyListFilter === 'function') window.FilterManager.applyListFilter(400);
         }
 
         // 🌟 换用新引擎读取启动时的记忆断点
