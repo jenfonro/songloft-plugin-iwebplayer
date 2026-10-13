@@ -494,10 +494,12 @@
     // =========================================================================
     // 🌟 核心引擎重构：播放请求流转
     // =========================================================================
-    window.playSong = async function(index, autoPlay = true, resumeTime = 0) {
+    window.playSong = async function(index, autoPlay = true, resumeTime = 0, options = {}) {
         if (window._davDirectTimeout) clearTimeout(window._davDirectTimeout);
         if (index < 0 || index >= window.songList.length) return;
 
+        const resumePlaylist = window.currentPlaylist;
+        const sessionRestore = options.resumeKind === 'session';
         const rawItem = window.restoreOnlineIdentity(window.songList[index]);
         const targetSongName = window.getSongNameObj(rawItem);
         const globalToken = window.getAccessToken ? window.getAccessToken() : "";
@@ -769,26 +771,21 @@
                     }, 8000);
                 }
 
-                let targetResumeTime = resumeTime > 0 ? resumeTime : 0;
+                let targetResumeTime = (sessionRestore || window.remembersPlayback(resumePlaylist)) && resumeTime > 0 ? resumeTime : 0;
                 let targetSpeed = plConfig.speedLocal || 1.0;
 
-                if (targetResumeTime === 0) {
-                    if (plConfig.resumeLocal === 'off') {
-                        const lastData = window.ProgressManager.getPlLast(window.currentPlaylist);
-                        if (lastData && lastData.name === window.currentSongName) targetResumeTime = lastData.time;
-                    } else {
-                        const historyData = window.ProgressManager.getPlHistory(window.currentPlaylist);
-                        const found = historyData.find(item => item.name === window.currentSongName);
-                        if (found) targetResumeTime = found.time;
-                    }
+                if (!sessionRestore && window.remembersPlayback(resumePlaylist) && targetResumeTime === 0) {
+                    const historyData = window.ProgressManager.getPlHistory(resumePlaylist);
+                    const found = historyData.find(item => item.name === targetSongName);
+                    if (found) targetResumeTime = found.time;
                 }
 
-                if (plConfig.resumeLocal === 'global') {
+                if (!sessionRestore && window.getPlaylistConfig(resumePlaylist).resumeLocal === 'global') {
                     try {
                         const res = await fetch(`./sync?playlist=${encodeURIComponent(window.currentPlaylist)}`);
                         if (res.ok) {
                             const resData = await res.json();
-                            if (resData && resData.data && resData.data.songName === window.currentSongName) {
+                            if (window.remembersPlayback(resumePlaylist) && resData && resData.data && resData.data.songName === window.currentSongName) {
                                 targetResumeTime = resData.data.time;
                             }
                         }
@@ -802,7 +799,8 @@
                 window.updateNpTitleUI(window.currentSongName, true, true);
 
                 const restoreProgress = () => {
-                    if (audioEl.duration && targetResumeTime > 0) {
+                    if (!sessionRestore && !window.remembersPlayback(resumePlaylist)) targetResumeTime = 0;
+                    if (audioEl.duration && Number.isFinite(Number(targetResumeTime)) && targetResumeTime > 0 && targetResumeTime < audioEl.duration) {
                         audioEl.currentTime = targetResumeTime;
                         if(timeCurrentEl) timeCurrentEl.innerText = window.formatTime(targetResumeTime);
                         if(timeDurationEl) timeDurationEl.innerText = window.formatTime(audioEl.duration);
@@ -972,10 +970,14 @@
 
     let cloudSyncTimer = null;
     let lastCloudSyncTime = 0;
+    window.cancelCloudSync = function() {
+        if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+        cloudSyncTimer = null;
+    };
     window.syncToCloud = function(playlist, songName, time, speed, force = false) {
         if (!playlist || !songName) return;
         const conf = window.getPlaylistConfig(playlist);
-        if (conf.resumeLocal !== 'global') return;
+        if (conf.resumeLocal !== 'global') { window.cancelCloudSync(); return; }
 
         const now = Date.now();
         if (!force && now - lastCloudSyncTime < 10000) {

@@ -2525,10 +2525,10 @@
                   const isSrcEmpty = !audioEl.src || audioEl.src === window.location.href || audioEl.src.includes('blob:');
                   if (window._wasPlayingBeforeHidden) {
                       window._wasPlayingBeforeHidden = false;
-                      window.playSong(currentIndex, true, window._interruptedTime);
+                      window.playSong(currentIndex, true, window._interruptedTime, { resumeKind: 'session' });
                   } else if (isSrcEmpty) {
                       const resumeTime = window.ProgressManager.getStandaloneTime();
-                      window.playSong(currentIndex, false, resumeTime);
+                      window.playSong(currentIndex, false, resumeTime, { resumeKind: 'session' });
                   }
               }
           }

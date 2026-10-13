@@ -65,13 +65,22 @@
     // ==========================================
     // 🚀 第二象限：高频微型进度中心 (ProgressManager)
     // ==========================================
+    // Historical resume is opt-in; transient audio state stays in memory.
+    window.remembersPlayback = function(playlist) {
+        const mode = window.getPlaylistConfig(playlist).resumeLocal;
+        return mode === 'local' || mode === 'global';
+    };
+    let standaloneSession = null;
     window.ProgressManager = {
         // 1. 全局最后活动现场 (极轻量，每2秒写)
         setActive: function(playlist, songName, time) {
-            localStorage.setItem('iwebplayer.active', JSON.stringify({ playlist, songName, time }));
+            localStorage.setItem('iwebplayer.active', JSON.stringify({ playlist, songName, time: window.remembersPlayback(playlist) ? time : 0 }));
         },
         getActive: function() {
-            try { return JSON.parse(localStorage.getItem('iwebplayer.active')) || {}; }
+            try {
+                const data = JSON.parse(localStorage.getItem('iwebplayer.active')) || {};
+                return { ...data, time: window.remembersPlayback(data.playlist) ? data.time : 0 };
+            }
             catch(e) { return {}; }
         },
 
@@ -79,19 +88,21 @@
         setPlLast: function(playlist, songName, time) {
             try {
                 const data = JSON.parse(localStorage.getItem('iwebplayer.pl_last')) || {};
-                data[playlist] = { name: songName, time: time };
+                data[playlist] = { name: songName, time: window.remembersPlayback(playlist) ? time : 0 };
                 localStorage.setItem('iwebplayer.pl_last', JSON.stringify(data));
             } catch(e) {}
         },
         getPlLast: function(playlist) {
             try {
                 const data = JSON.parse(localStorage.getItem('iwebplayer.pl_last')) || {};
-                return data[playlist] || null;
+                const item = data[playlist];
+                return item ? { ...item, time: window.remembersPlayback(playlist) ? item.time : 0 } : null;
             } catch(e) { return null; }
         },
 
         // 3. 歌单多曲历史库 (续播歌单使用，存5首)
         setPlHistory: function(playlist, songName, time) {
+            if (!window.remembersPlayback(playlist)) return;
             try {
                 const data = JSON.parse(localStorage.getItem('iwebplayer.pl_history')) || {};
                 let list = data[playlist] || [];
@@ -103,6 +114,7 @@
             } catch(e) {}
         },
         getPlHistory: function(playlist) {
+            if (!window.remembersPlayback(playlist)) return [];
             try {
                 const data = JSON.parse(localStorage.getItem('iwebplayer.pl_history')) || {};
                 return data[playlist] || [];
@@ -111,10 +123,11 @@
 
         // 4. PWA 防杀抢救点
         setStandaloneTime: function(time) {
-            localStorage.setItem('iwebplayer.standalone_time', time);
+            const audio = document.getElementById('audio');
+            standaloneSession = { song: audio?.dataset.playingSongName, time };
         },
         getStandaloneTime: function() {
-            return parseFloat(localStorage.getItem('iwebplayer.standalone_time')) || 0;
+            return standaloneSession?.song === window.currentSongName ? standaloneSession.time : 0;
         }
     };
 
@@ -325,6 +338,7 @@
         const configs = window.ConfigManager.get('config', 'playlist_configs') || {};
         configs[plName] = config;
         window.ConfigManager.set('config', 'playlist_configs', configs);
+        if (config.resumeLocal !== 'global' && window.cancelCloudSync) window.cancelCloudSync();
     };
 
     window.showToast = function(msg, persist = false) {
@@ -396,8 +410,7 @@
                 if (window.isPageBtnPause) return;
                 if (audioEl.src && !audioEl.ended) {
                     const currentTime = audioEl.currentTime;
-                    audioEl.src = "";
-                    audioEl.load();
+                    // Keep the current media resource: pause/continue is not history restore.
                     if (typeof updatePlayButtonUICb === 'function') updatePlayButtonUICb(false);
                     // 🌟 已替换为最新的 ProgressManager 独立键写入
                     window.ProgressManager.setStandaloneTime(currentTime);
