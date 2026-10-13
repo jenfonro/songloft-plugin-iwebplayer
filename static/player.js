@@ -968,6 +968,7 @@
 
     window.scoutCrossPlaylistSong = async function(playlistName, rawItem) {
         if (!rawItem || window.isScouting) return;
+        const request = playbackRequest;
         window.isScouting = true;
 
         rawItem = window.restoreOnlineIdentity(rawItem);
@@ -1008,11 +1009,12 @@
                 }
             }
 
+            if (request !== playbackRequest) return;
             if (targetAudioUrl) {
                 window.preloadCache = { trackKey: playbackTrackKey(rawItem), isCross: true, playlist: playlistName, data: fetchedData, url: targetAudioUrl };
             }
         } catch (e) {}
-        window.isScouting = false;
+        if (request === playbackRequest) window.isScouting = false;
     };
 
     // =========================================================================

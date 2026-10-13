@@ -105,3 +105,16 @@ test('late lyric result from an earlier request for the same song is ignored', a
     p.requests[0].resolve({ url: '/old.mp3' }); await first;
     assert.equal(lyrics.at(-1), 'new lyric');
 });
+
+test('late cross-playlist scout cannot overwrite the current preload cache', async () => {
+    const p = createPlayer();
+    const scout = p.ctx.scoutCrossPlaylistSong('Other', { id: 99, title: 'Old' });
+    const c = p.ctx.playSong(2);
+    p.requests[1].resolve({ url: '/audio-C.mp3' }); await c;
+    const latestCache = { playlist: 'Test', index: 0 };
+    p.ctx.preloadCache = latestCache;
+    p.ctx.isScouting = true;
+    p.requests[0].resolve({ url: '/old.mp3' }); await scout;
+    assert.equal(p.ctx.preloadCache, latestCache);
+    assert.equal(p.ctx.isScouting, true);
+});
