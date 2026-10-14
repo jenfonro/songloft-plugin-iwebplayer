@@ -1,5 +1,5 @@
 // static/player.js
-(function(window) {
+(function(window) { 
     'use strict';
 
     // 内部微型 DOM 获取器
